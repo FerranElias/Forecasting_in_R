@@ -1,0 +1,58 @@
+install.packages("BioStatR") 
+library(BioStatR)
+pairs(credit[,-(4:5)], diag.panel=panel.hist)
+
+creditlog <- data.frame(score=credit$score,log.savings=log(credit$savings+1), log.income=log(credit$income+1),
+                        log.address=log(credit$time.address+1),log.employed=log(credit$time.employed+1),
+                        fte=credit$fte, single=credit$single)
+
+pairs(creditlog[,1:5],diag.panel=panel.hist)
+
+fit <- step(lm(score~log.savings+log.income+log.address+log.employed+single, data=creditlog))
+summary(fit)
+
+plot(fitted(fit), creditlog$score, ylab="Score", xlab="Predicted score")
+
+#analyze the residuals
+fit <- lm(score~log.savings+log.income+log.address+log.employed, data=creditlog)
+par(mfrow=c(2,2))
+plot(creditlog$log.savings,residuals(fit),xlab="log(savings)")
+plot(creditlog$log.income,residuals(fit),xlab="log(income)")
+plot(creditlog$log.address,residuals(fit),xlab="log(address)")
+plot(creditlog$log.employed,residuals(fit),xlab="log(employed)")
+
+#plotting residuals against fitted values to check for heteroskedasticity
+plot(fitted(fit), residuals(fit),xlab="Predicted scores",ylab="Residuals")
+
+###time series problem now
+beer2 <- window(ausbeer,start=1992,end=2006-.1)
+fit <- tslm(beer2~trend+season)
+summary(fit)
+plot(beer2, xlab="Year", ylab="", main="Quarterly Beer Production")
+lines(fitted(fit), col=2)
+legend("topright",lty=1,col=c(1,2),legend=c("Actual","Predicted"))
+
+plot(fitted(fit),beer2,xy.lines=FALSE,xy.labels=FALSE,xlab="Predicted values", ylab="Actual values", main="Quarterly Beer Production")
+abline(0,1,col="gray")
+fcast <- forecast(fit)
+plot(fcast,main="Forecasts of beer production using linear regression")
+
+CV(fit) #gives 5 measures of predictive accuracy: adjusted r2, cross-validation, AIC, corrected AIC, and Schwarz-Bayesian IC
+
+#checking autocorrelation in the residuals
+fit <- tslm(beer2~trend+season)
+res <- residuals(fit)
+par(mfrow=c(1,2))
+plot(res, ylab="Residuals",xlab="Year")
+Acf(res,main="ACF of residuals")
+
+#durbin-watson
+dwtest(fit, alt="two.sided")
+
+#breusch-godfrey test to look for significant higher-lag autocorrelations. Specificy, we do it up to lag 5
+bgtest(fit,5)
+
+hist(res, breaks="FD", xlab="Residuals", 
+     main="Histogram of residuals", ylim=c(0,22))
+x <- -50:50
+lines(x, 560*dnorm(x,0,sd(res)),col=2)
